@@ -82,7 +82,7 @@ export default function RegisterScreen() {
           username: normalizedUsername,
           password,
         });
-        router.replace('/');
+        router.replace('/home');
         return;
       }
 
@@ -109,7 +109,7 @@ export default function RegisterScreen() {
         throw new Error(responseBody.message ?? 'Registrasi gagal.');
       }
 
-      router.replace('/');
+      router.replace('/home');
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -248,7 +248,7 @@ export default function RegisterScreen() {
             )}
           </Pressable>
 
-          <Pressable onPress={() => router.replace('/')} style={styles.secondaryButton}>
+          <Pressable onPress={() => router.replace('/login')} style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>Sudah punya akun? Login</Text>
           </Pressable>
         </View>
