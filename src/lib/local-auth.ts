@@ -6,9 +6,16 @@ export function isGmailAddress(email: string) {
   return /^[^\s@]+@gmail\.com$/i.test(email);
 }
 
-export function hasUniquePasswordCharacters(password: string) {
-  const characters = Array.from(password);
-  return new Set(characters).size === characters.length;
+export function hasPasswordRequirements(password: string) {
+  if (password.length < 8) {
+    return false;
+  }
+
+  if (!/\d/.test(password)) {
+    return false;
+  }
+
+  return /[^A-Za-z0-9]/.test(password);
 }
 
 export type LocalUser = {

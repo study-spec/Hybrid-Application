@@ -2,7 +2,7 @@ import { Stack, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { PasswordVisibilityIcon } from '../src/components/password-visibility-icon';
 import {
-  hasUniquePasswordCharacters,
+  hasPasswordRequirements,
   isGmailAddress,
   saveLocalUser,
 } from '../src/lib/local-auth';
@@ -50,13 +50,8 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password minimal 8 karakter.');
-      return;
-    }
-
-    if (!hasUniquePasswordCharacters(password)) {
-      setError('Setiap karakter dalam password harus berbeda.');
+    if (!hasPasswordRequirements(password)) {
+      setError('Password minimal 8 karakter, harus mengandung angka, dan 1 karakter unik.');
       return;
     }
 
@@ -182,7 +177,7 @@ export default function RegisterScreen() {
               editable={!isSubmitting}
               onChangeText={setPassword}
               onSubmitEditing={() => void handleRegister()}
-              placeholder="Minimal 8 karakter"
+              placeholder="Masukkan password"
               placeholderTextColor="#8a94a6"
               returnKeyType="next"
               secureTextEntry={!isPasswordVisible}
