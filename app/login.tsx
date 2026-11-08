@@ -8,7 +8,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -104,22 +103,24 @@ export default function HomeScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
+      className="flex-1 items-center justify-center bg-[#f7f9fc]"
     >
       <Stack.Screen options={{ title: 'Login' }} />
       <ScrollView
         alwaysBounceVertical
-        contentContainerStyle={styles.content}
+        contentContainerClassName="w-full grow justify-center px-6 pb-12 pt-6"
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
         showsVerticalScrollIndicator
       >
-        <View style={styles.form}>
-          <Text style={styles.title}>Selamat datang</Text>
-          <Text style={styles.subtitle}>Masuk untuk melanjutkan ke aplikasi.</Text>
+        <View className="w-full max-w-[420px] self-center">
+          <Text className="mb-2 text-[30px] font-bold text-[#172033]">Selamat datang</Text>
+          <Text className="mb-8 text-base text-[#667085]">
+            Masuk untuk melanjutkan ke aplikasi.
+          </Text>
 
-          <Text style={styles.label}>Email</Text>
+          <Text className="mb-2 text-sm font-semibold text-[#344054]">Email</Text>
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
@@ -131,13 +132,13 @@ export default function HomeScreen() {
             placeholder="Masukkan email"
             placeholderTextColor="#8a94a6"
             returnKeyType="next"
-            style={styles.input}
+            className="mb-5 rounded-[10px] border border-[#d0d5dd] bg-white px-[14px] py-[13px] text-base text-[#172033]"
             textContentType="emailAddress"
             value={email}
           />
 
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordField}>
+          <Text className="mb-2 text-sm font-semibold text-[#344054]">Password</Text>
+          <View className="mb-5 flex-row items-center rounded-[10px] border border-[#d0d5dd] bg-white">
             <TextInput
               ref={passwordInputRef}
               autoCapitalize="none"
@@ -149,7 +150,7 @@ export default function HomeScreen() {
               placeholderTextColor="#8a94a6"
               returnKeyType="go"
               secureTextEntry={!isPasswordVisible}
-              style={styles.passwordInput}
+              className="flex-1 px-[14px] py-[13px] text-base text-[#172033]"
               textContentType="password"
               value={password}
             />
@@ -158,141 +159,43 @@ export default function HomeScreen() {
               accessibilityRole="button"
               accessibilityState={{ selected: isPasswordVisible }}
               onPress={() => setIsPasswordVisible((visible) => !visible)}
-              style={styles.visibilityButton}
+              className="px-3 py-3"
             >
               <PasswordVisibilityIcon visible={isPasswordVisible} />
             </Pressable>
           </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text className="mb-4 text-sm text-[#b42318]">{error}</Text> : null}
 
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ disabled: isSubmitting }}
             disabled={isSubmitting}
             onPress={() => void handleLogin()}
-            style={({ pressed }) => [
-              styles.button,
-              pressed && !isSubmitting ? styles.buttonPressed : null,
-              isSubmitting ? styles.buttonDisabled : null,
-            ]}
+            className={`min-h-[50px] items-center justify-center rounded-[10px] bg-[#2563eb] px-[18px] py-3 ${
+              isSubmitting ? 'opacity-60' : ''
+            }`}
+            style={({ pressed }) =>
+              pressed && !isSubmitting ? { opacity: 0.85 } : undefined
+            }
           >
             {isSubmitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.buttonText}>Login</Text>
+              <Text className="text-base font-semibold text-white">Login</Text>
             )}
           </Pressable>
 
-          <Pressable onPress={() => router.push('/register')} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Belum punya akun? Daftar</Text>
+          <Pressable
+            onPress={() => router.push('/register')}
+            className="mt-5 items-center p-2"
+          >
+            <Text className="text-[15px] font-semibold text-[#2563eb]">
+              Belum punya akun? Daftar
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f7f9fc',
-  },
-  content: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-    paddingBottom: 48,
-    width: '100%',
-  },
-  form: {
-    alignSelf: 'center',
-    width: '100%',
-    maxWidth: 420,
-  },
-  title: {
-    color: '#172033',
-    fontSize: 30,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  subtitle: {
-    color: '#667085',
-    fontSize: 16,
-    marginBottom: 32,
-  },
-  label: {
-    color: '#344054',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d0d5dd',
-    borderRadius: 10,
-    borderWidth: 1,
-    color: '#172033',
-    fontSize: 16,
-    marginBottom: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  passwordField: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#d0d5dd',
-    borderRadius: 10,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  passwordInput: {
-    color: '#172033',
-    flex: 1,
-    fontSize: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  visibilityButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  error: {
-    color: '#b42318',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  button: {
-    alignItems: 'center',
-    backgroundColor: '#2563eb',
-    borderRadius: 10,
-    justifyContent: 'center',
-    minHeight: 50,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    marginTop: 20,
-    padding: 8,
-  },
-  secondaryButtonText: {
-    color: '#2563eb',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});

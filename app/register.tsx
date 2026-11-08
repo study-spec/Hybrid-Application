@@ -12,7 +12,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
@@ -119,57 +118,64 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}
+      className="flex-1 items-center justify-center bg-[#f7f9fc]"
     >
       <Stack.Screen options={{ title: 'Register' }} />
       <ScrollView
         alwaysBounceVertical
-        contentContainerStyle={styles.content}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          padding: 24,
+          paddingBottom: 48,
+          width: '100%',
+        }}
         keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
         showsVerticalScrollIndicator
       >
-        <View style={styles.form}>
-          <Text style={styles.title}>Buat akun</Text>
-          <Text style={styles.subtitle}>Daftar untuk mulai menggunakan aplikasi.</Text>
 
-          <Text style={styles.label}>Email</Text>
+        <View className="self-center w-full max-w-[420px]">
+          <Text className='text-[#172033] text-3xl font-bold mb-2'>Buat akun</Text>
+          <Text className='text-[#667085] text-base mb-8'>Daftar untuk mulai menggunakan aplikasi.</Text>
+
+          <Text className='text-[#344054] text-sm font-semibold mb-2'>Email</Text>
           <TextInput
-            autoCapitalize="none"
-            autoComplete="email"
-            autoCorrect={false}
-            editable={!isSubmitting}
-            keyboardType="email-address"
-            onChangeText={setEmail}
-            onSubmitEditing={() => usernameInputRef.current?.focus()}
-            placeholder="Masukkan email"
-            placeholderTextColor="#8a94a6"
-            returnKeyType="next"
-            style={styles.input}
-            textContentType="emailAddress"
-            value={email}
-          />
+          autoCapitalize="none"
+          autoComplete="email"
+          autoCorrect={false}
+          editable={!isSubmitting}
+          keyboardType="email-address"
+          onChangeText={setEmail}
+          onSubmitEditing={() => usernameInputRef.current?.focus()}
+          placeholder="Masukkan email"
+          placeholderTextColor="#8a94a6"
+          returnKeyType="next"
+          className="bg-white border border-[#d0d5dd] rounded-[10px] text-[#172033] text-base mb-5 px-[14px] py-[13px]"
+          textContentType="emailAddress"
+          value={email}
+        />
 
-          <Text style={styles.label}>Username</Text>
+          <Text className='text-[#344054] text-sm font-semibold mb-2'>Username</Text>
           <TextInput
-            ref={usernameInputRef}
-            autoCapitalize="none"
-            autoComplete="username"
-            autoCorrect={false}
-            editable={!isSubmitting}
-            onChangeText={setUsername}
-            onSubmitEditing={() => passwordInputRef.current?.focus()}
-            placeholder="Masukkan username"
-            placeholderTextColor="#8a94a6"
-            returnKeyType="next"
-            style={styles.input}
-            textContentType="username"
-            value={username}
-          />
+          ref={usernameInputRef}
+          autoCapitalize="none"
+          autoComplete="username"
+          autoCorrect={false}
+          editable={!isSubmitting}
+          onChangeText={setUsername}
+          onSubmitEditing={() => passwordInputRef.current?.focus()}
+          placeholder="Masukkan username"
+          placeholderTextColor="#8a94a6"
+          returnKeyType="next"
+          className="bg-white border border-[#d0d5dd] rounded-[10px] text-[#172033] text-base mb-5 px-[14px] py-[13px]"
+          textContentType="username"
+          value={username}
+        />
 
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.passwordField}>
+          <Text className="text-[#344054] text-sm font-semibold mb-2">Password</Text>
+          <View className="flex-row items-center bg-white border border-[#d0d5dd] rounded-[10px] mb-5">
             <TextInput
               ref={passwordInputRef}
               autoCapitalize="none"
@@ -181,7 +187,7 @@ export default function RegisterScreen() {
               placeholderTextColor="#8a94a6"
               returnKeyType="next"
               secureTextEntry={!isPasswordVisible}
-              style={styles.passwordInput}
+              className="flex-1 text-[#172033] text-base px-[14px] py-[13px]"
               textContentType="newPassword"
               value={password}
             />
@@ -190,14 +196,14 @@ export default function RegisterScreen() {
               accessibilityRole="button"
               accessibilityState={{ selected: isPasswordVisible }}
               onPress={() => setIsPasswordVisible((visible) => !visible)}
-              style={styles.visibilityButton}
+              className="px-3 py-3"
             >
               <PasswordVisibilityIcon visible={isPasswordVisible} />
             </Pressable>
           </View>
 
-          <Text style={styles.label}>Konfirmasi password</Text>
-          <View style={styles.passwordField}>
+          <Text className="text-[#344054] text-sm font-semibold mb-2">Konfirmasi password</Text>
+          <View className="flex-row items-center bg-white border border-[#d0d5dd] rounded-[10px] mb-5">
             <TextInput
               autoCapitalize="none"
               autoComplete="new-password"
@@ -208,7 +214,7 @@ export default function RegisterScreen() {
               placeholderTextColor="#8a94a6"
               returnKeyType="go"
               secureTextEntry={!isConfirmPasswordVisible}
-              style={styles.passwordInput}
+              className="flex-1 text-[#172033] text-base px-[14px] py-[13px]"
               textContentType="newPassword"
               value={confirmPassword}
             />
@@ -217,139 +223,41 @@ export default function RegisterScreen() {
               accessibilityRole="button"
               accessibilityState={{ selected: isConfirmPasswordVisible }}
               onPress={() => setIsConfirmPasswordVisible((visible) => !visible)}
-              style={styles.visibilityButton}
+              className="px-3 py-3"
             >
               <PasswordVisibilityIcon visible={isConfirmPasswordVisible} />
             </Pressable>
           </View>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {error ? <Text className="text-[#b42318] text-sm">{error}</Text> : null}
 
           <Pressable
             accessibilityRole="button"
             accessibilityState={{ disabled: isSubmitting }}
             disabled={isSubmitting}
             onPress={() => void handleRegister()}
-            style={({ pressed }) => [
-              styles.button,
-              pressed && !isSubmitting ? styles.buttonPressed : null,
-              isSubmitting ? styles.buttonDisabled : null,
-            ]}
+            className={`min-h-[50px] items-center justify-center bg-blue-600 rounded-[10px] px-[18px] py-3 ${
+            isSubmitting ? 'opacity-60' : 'active:opacity-85'
+          }`}
           >
             {isSubmitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.buttonText}>Register</Text>
+              <Text className="text-white text-base font-semibold">Register</Text>
             )}
           </Pressable>
 
-          <Pressable onPress={() => router.replace('/login')} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Sudah punya akun? Login</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <Pressable
+          onPress={() => router.replace('/login')}
+          className="items-center mt-5 p-2"
+        >
+          <Text className="text-blue-600 text-[15px] font-semibold">
+            Sudah punya akun? Login
+          </Text>
+        </Pressable>
+
+      </View>
+    </ScrollView>
+  </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7f9fc',
-  },
-  content: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-    paddingBottom: 48,
-    width: '100%',
-  },
-  form: {
-    alignSelf: 'center',
-    width: '100%',
-    maxWidth: 420,
-  },
-  title: {
-    color: '#172033',
-    fontSize: 30,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  subtitle: {
-    color: '#667085',
-    fontSize: 16,
-    marginBottom: 28,
-  },
-  label: {
-    color: '#344054',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d0d5dd',
-    borderRadius: 10,
-    borderWidth: 1,
-    color: '#172033',
-    fontSize: 16,
-    marginBottom: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  passwordField: {
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#d0d5dd',
-    borderRadius: 10,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginBottom: 18,
-  },
-  passwordInput: {
-    color: '#172033',
-    flex: 1,
-    fontSize: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  visibilityButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  error: {
-    color: '#b42318',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  button: {
-    alignItems: 'center',
-    backgroundColor: '#2563eb',
-    borderRadius: 10,
-    justifyContent: 'center',
-    minHeight: 50,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  buttonPressed: {
-    opacity: 0.85,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    marginTop: 20,
-    padding: 8,
-  },
-  secondaryButtonText: {
-    color: '#2563eb',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-});

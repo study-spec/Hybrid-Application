@@ -1,12 +1,3 @@
 import "../global.css";
-import { Stack } from 'expo-router';
-
-export default function RootLayout() {
-  return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    />
-  );
-}
+import { Tabs } from 'expo-router';
+import { Text } from 'react-native';
