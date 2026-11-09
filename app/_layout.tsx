@@ -1,6 +1,55 @@
 import "../global.css";
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Text, View, type ColorValue } from 'react-native';
+
+function TabIcon({
+  icon,
+  label,
+  color,
+  focused,
+}: {
+  icon: string;
+  label: string;
+  color: ColorValue;
+  focused: boolean;
+}) {
+  return (
+    <View
+      style={{
+        width: '100%',
+        height: 76,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 18,
+        backgroundColor: focused ? '#e5f4ed' : 'transparent',
+      }}
+    >
+      <Text style={{ color, fontSize: 18, lineHeight: 23, fontWeight: focused ? '700' : '500' }}>
+        {icon}
+      </Text>
+      <Text
+        numberOfLines={1}
+        style={{
+          color,
+          fontSize: 12,
+          fontWeight: focused ? '700' : '600',
+          marginTop: 2,
+        }}
+      >
+        {label}
+      </Text>
+      <View
+        style={{
+          width: 22,
+          height: 4,
+          borderRadius: 2,
+          marginTop: 3,
+          backgroundColor: focused ? '#07866f' : 'transparent',
+        }}
+      />
+    </View>
+  );
+}
 
 export default function RootLayout() {
   // Navbar bawah untuk berpindah antarhalaman utama aplikasi.
@@ -9,17 +58,26 @@ export default function RootLayout() {
       initialRouteName="home"
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#55735d',
-        tabBarInactiveTintColor: '#849087',
+        tabBarActiveTintColor: '#07866f',
+        tabBarInactiveTintColor: '#93a39f',
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: '#ffffff',
-          borderTopColor: '#e9ede7',
-          height: 64,
+          borderTopWidth: 0,
+          borderRadius: 24,
+          marginHorizontal: 14,
+          marginBottom: 10,
+          paddingHorizontal: 8,
           paddingTop: 6,
+          paddingBottom: 6,
+          elevation: 8,
+          shadowColor: '#172033',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
         },
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '600',
+        tabBarItemStyle: {
+          paddingHorizontal: 3,
         },
       }}
     >
@@ -27,8 +85,8 @@ export default function RootLayout() {
         name="home"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 18 }}>⌂</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon icon="⌂" label="Home" color={color} focused={focused} />
           ),
         }}
       />
@@ -36,8 +94,8 @@ export default function RootLayout() {
         name="laporanudara"
         options={{
           title: 'Pantauan Udara',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 18 }}>◉</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon icon="◉" label="Udara" color={color} focused={focused} />
           ),
         }}
       />
@@ -45,8 +103,8 @@ export default function RootLayout() {
         name="konsultasi"
         options={{
           title: 'Konsultasi',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 18 }}>♡</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon icon="+" label="Konsultasi" color={color} focused={focused} />
           ),
         }}
       />
@@ -54,8 +112,8 @@ export default function RootLayout() {
         name="edukasi"
         options={{
           title: 'Edukasi',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 18 }}>▤</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon icon="▤" label="Edukasi" color={color} focused={focused} />
           ),
         }}
       />
@@ -64,8 +122,8 @@ export default function RootLayout() {
         options={{
           title: 'Profil',
           tabBarLabel: 'Profil',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ color, fontSize: 18 }}>●</Text>
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon icon="♟" label="Profil" color={color} focused={focused} />
           ),
         }}
       />
