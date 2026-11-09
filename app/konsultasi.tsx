@@ -10,6 +10,10 @@ import {
   Platform,
 } from "react-native";
 
+// ===============================
+// TYPES
+// ===============================
+
 type Stage =
   | "symptom"
   | "duration"
@@ -41,12 +45,16 @@ type Doctor = {
   slots: string[];
 };
 
+// ===============================
+// DUMMY DOCTOR DATA
+// ===============================
+
 const doctors: Doctor[] = [
   {
     id: 1,
     name: "Dr. Andi Pratama",
     specialist: "Dokter Umum",
-    description: "Evaluasi awal keluhan pernapasan",
+    description: "Evaluasi awal keluhan kesehatan",
     facility: "Klinik Sehat Bersama",
     address: "Jl. Kesehatan No. 10",
     schedule: "Senin - Jumat",
@@ -77,6 +85,10 @@ const doctors: Doctor[] = [
   },
 ];
 
+// ===============================
+// HELPER FUNCTIONS
+// ===============================
+
 const dangerKeywords = [
   "sesak berat",
   "sulit bernapas",
@@ -90,6 +102,7 @@ const dangerKeywords = [
 
 function isDangerous(text: string) {
   const normalized = text.toLowerCase();
+
   return dangerKeywords.some((keyword) =>
     normalized.includes(keyword)
   );
@@ -113,7 +126,7 @@ function getRecommendedDoctors(
     text.includes("asma") ||
     text.includes("sesak") ||
     text.includes("napas") ||
-    text.includes("bernapas") ||
+    text.includes("batuk") ||
     exposure.toLowerCase().includes("sering")
   ) {
     return [doctors[1], doctors[0]];
@@ -130,7 +143,6 @@ function isValidFutureDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   const date = new Date(year, month - 1, day);
 
-  // Memastikan tanggal benar-benar valid
   if (
     date.getFullYear() !== year ||
     date.getMonth() !== month - 1 ||
@@ -145,9 +157,15 @@ function isValidFutureDate(value: string) {
   return date >= today;
 }
 
+// ===============================
+// MAIN SCREEN
+// ===============================
+
 export default function KonsultasiScreen() {
+  // Tahap konsultasi
   const [stage, setStage] = useState<Stage>("symptom");
 
+  // Chatbot
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 1,
@@ -158,10 +176,12 @@ export default function KonsultasiScreen() {
 
   const [input, setInput] = useState("");
 
+  // Jawaban pengguna
   const [symptom, setSymptom] = useState("");
   const [duration, setDuration] = useState("");
   const [exposure, setExposure] = useState("");
 
+  // Booking dokter
   const [selectedDoctor, setSelectedDoctor] =
     useState<Doctor | null>(null);
 
@@ -174,10 +194,19 @@ export default function KonsultasiScreen() {
   const [patientName, setPatientName] = useState("");
   const [bookingDate, setBookingDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
+
   const [bookingError, setBookingError] = useState("");
   const [ticketNumber, setTicketNumber] = useState("");
 
-  const [ticketCreatedAt] = useState(() => new Date());
+  // Rekomendasi dokter
+  const recommendedDoctors = getRecommendedDoctors(
+    symptom,
+    exposure
+  );
+
+  // ===============================
+  // CHAT FUNCTIONS
+  // ===============================
 
   const addMessage = (
     sender: "bot" | "user",
@@ -206,6 +235,7 @@ export default function KonsultasiScreen() {
         "bot",
         "Keluhan yang kamu sampaikan dapat menandakan kondisi darurat. Segera cari pertolongan medis di IGD atau hubungi layanan darurat setempat. Jangan menunggu proses chatbot atau booking."
       );
+
       setStage("urgent");
       return;
     }
@@ -239,15 +269,20 @@ export default function KonsultasiScreen() {
 
       addMessage(
         "bot",
-        "Terima kasih! Jawaban kamu sudah dicatat. Berikut ringkasan keluhan dan rekomendasi dokter berdasarkan informasi awal yang kamu berikan."
+        "Terima kasih! Informasi kamu sudah dicatat. Berikut ringkasan keluhan dan rekomendasi dokter berdasarkan jawaban awal kamu."
       );
 
       setStage("done");
     }
   };
 
+  // ===============================
+  // RESET
+  // ===============================
+
   const resetChat = () => {
     setStage("symptom");
+
     setMessages([
       {
         id: Date.now(),
@@ -260,36 +295,57 @@ export default function KonsultasiScreen() {
     setSymptom("");
     setDuration("");
     setExposure("");
+
     setSelectedDoctor(null);
     setConsultationMethod(null);
     setOnlinePlatform(null);
+
     setPatientName("");
     setBookingDate("");
     setSelectedTime("");
+
     setBookingError("");
     setTicketNumber("");
   };
 
+  // ===============================
+  // DOCTOR SELECTION
+  // ===============================
+
   const selectDoctor = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
+
     setConsultationMethod(null);
     setOnlinePlatform(null);
     setSelectedTime("");
     setBookingError("");
+
     setStage("method");
   };
 
+  // ===============================
+  // METHOD SELECTION
+  // ===============================
+
   const selectMethod = (method: ConsultationMethod) => {
     setConsultationMethod(method);
+
     setOnlinePlatform(null);
     setSelectedTime("");
     setBookingError("");
+
     setStage("booking");
   };
 
+  // ===============================
+  // CONFIRM BOOKING
+  // ===============================
+
   const confirmBooking = () => {
     if (!selectedDoctor || !consultationMethod) {
-      setBookingError("Silakan pilih dokter dan metode konsultasi.");
+      setBookingError(
+        "Silakan pilih dokter dan metode konsultasi."
+      );
       return;
     }
 
@@ -314,7 +370,9 @@ export default function KonsultasiScreen() {
       consultationMethod === "online" &&
       !onlinePlatform
     ) {
-      setBookingError("Silakan pilih media konsultasi online.");
+      setBookingError(
+        "Silakan pilih media konsultasi online."
+      );
       return;
     }
 
@@ -326,12 +384,9 @@ export default function KonsultasiScreen() {
     setStage("booked");
   };
 
-  const recommendedDoctors = getRecommendedDoctors(
-    symptom,
-    exposure
-  );
-
-  const availableSlots = selectedDoctor?.slots ?? [];
+  // ===============================
+  // REUSABLE COMPONENTS
+  // ===============================
 
   const PrimaryButton = ({
     title,
@@ -378,6 +433,7 @@ export default function KonsultasiScreen() {
       <Text className="text-xl font-bold text-gray-900">
         {title}
       </Text>
+
       {subtitle ? (
         <Text className="text-gray-500 text-sm mt-1">
           {subtitle}
@@ -386,7 +442,11 @@ export default function KonsultasiScreen() {
     </View>
   );
 
-  const DoctorCard = ({ doctor }: { doctor: Doctor }) => (
+  const DoctorCard = ({
+    doctor,
+  }: {
+    doctor: Doctor;
+  }) => (
     <View className="bg-white border border-gray-200 rounded-2xl p-4 mb-3">
       <View className="flex-row items-center mb-3">
         <View className="w-12 h-12 rounded-full bg-green-100 items-center justify-center mr-3">
@@ -399,13 +459,14 @@ export default function KonsultasiScreen() {
           <Text className="font-bold text-gray-900">
             {doctor.name}
           </Text>
+
           <Text className="text-green-700 text-sm">
             {doctor.specialist}
           </Text>
         </View>
       </View>
 
-      <Text className="text-gray-600 text-sm mb-2">
+      <Text className="text-gray-600 text-sm mb-3">
         {doctor.description}
       </Text>
 
@@ -413,9 +474,11 @@ export default function KonsultasiScreen() {
         <Text className="text-gray-800 text-sm font-semibold">
           {doctor.facility}
         </Text>
+
         <Text className="text-gray-500 text-xs mt-1">
           {doctor.address}
         </Text>
+
         <Text className="text-gray-500 text-xs mt-1">
           Jadwal contoh: {doctor.schedule}
         </Text>
@@ -428,12 +491,17 @@ export default function KonsultasiScreen() {
     </View>
   );
 
+  // ===============================
+  // MAIN UI
+  // ===============================
+
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-[#F6F9F5]"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View className="flex-1">
+
         {/* HEADER */}
         <View className="bg-green-700 px-5 pt-12 pb-5 rounded-b-3xl">
           <View className="flex-row items-center justify-between">
@@ -441,6 +509,7 @@ export default function KonsultasiScreen() {
               <Text className="text-white text-2xl font-bold">
                 NapasAI
               </Text>
+
               <Text className="text-green-100 text-sm mt-1">
                 Asisten kesehatan pernapasan
               </Text>
@@ -462,7 +531,11 @@ export default function KonsultasiScreen() {
           }}
           keyboardShouldPersistTaps="handled"
         >
+
+          {/* ===================== */}
           {/* CHATBOT */}
+          {/* ===================== */}
+
           {(
             stage === "symptom" ||
             stage === "duration" ||
@@ -473,12 +546,14 @@ export default function KonsultasiScreen() {
                 <Text className="text-lg font-bold text-gray-900">
                   Konsultasi dengan NapasAI
                 </Text>
+
                 <Text className="text-gray-500 text-sm mt-1">
                   Jawab beberapa pertanyaan untuk mendapatkan
                   rekomendasi awal.
                 </Text>
               </View>
 
+              {/* CHAT MESSAGES */}
               {messages.map((message) => (
                 <View
                   key={message.id}
@@ -514,7 +589,7 @@ export default function KonsultasiScreen() {
                 </View>
               ))}
 
-              {/* QUICK REPLIES */}
+              {/* DURASI */}
               {stage === "duration" && (
                 <View className="mt-2">
                   <OptionButton
@@ -523,16 +598,19 @@ export default function KonsultasiScreen() {
                       submitAnswer("Kurang dari 1 hari")
                     }
                   />
+
                   <OptionButton
                     title="1 - 3 hari"
                     onPress={() => submitAnswer("1 - 3 hari")}
                   />
+
                   <OptionButton
                     title="Lebih dari 3 hari"
                     onPress={() =>
                       submitAnswer("Lebih dari 3 hari")
                     }
                   />
+
                   <OptionButton
                     title="Lebih dari 1 minggu"
                     onPress={() =>
@@ -542,6 +620,7 @@ export default function KonsultasiScreen() {
                 </View>
               )}
 
+              {/* PAPARAN ASAP */}
               {stage === "exposure" && (
                 <View className="mt-2">
                   <OptionButton
@@ -550,12 +629,14 @@ export default function KonsultasiScreen() {
                       submitAnswer("Ya, sering terpapar")
                     }
                   />
+
                   <OptionButton
                     title="Kadang-kadang"
                     onPress={() =>
                       submitAnswer("Kadang-kadang")
                     }
                   />
+
                   <OptionButton
                     title="Tidak pernah"
                     onPress={() =>
@@ -565,7 +646,7 @@ export default function KonsultasiScreen() {
                 </View>
               )}
 
-              {/* INPUT CHAT */}
+              {/* CHAT INPUT */}
               <View className="flex-row items-center mt-4">
                 <TextInput
                   value={input}
@@ -594,7 +675,10 @@ export default function KonsultasiScreen() {
             </>
           )}
 
+          {/* ===================== */}
           {/* URGENT */}
+          {/* ===================== */}
+
           {stage === "urgent" && (
             <View className="bg-red-50 border border-red-200 rounded-2xl p-5">
               <Text className="text-red-700 text-xl font-bold mb-2">
@@ -602,7 +686,7 @@ export default function KonsultasiScreen() {
               </Text>
 
               <Text className="text-gray-700 text-sm leading-6 mb-4">
-                Gejala yang kamu sampaikan dapat menjadi tanda
+                Keluhan yang disampaikan dapat menandakan
                 kondisi darurat. Segera ke IGD atau hubungi
                 layanan darurat setempat. Jangan menunggu
                 konsultasi online atau booking.
@@ -615,18 +699,22 @@ export default function KonsultasiScreen() {
             </View>
           )}
 
-          {/* RINGKASAN DAN REKOMENDASI */}
+          {/* ===================== */}
+          {/* RINGKASAN & DOKTER */}
+          {/* ===================== */}
+
           {stage === "done" && (
             <>
               <SectionTitle
                 title="Ringkasan Keluhan"
-                subtitle="Berikut informasi yang kamu sampaikan."
+                subtitle="Informasi yang kamu sampaikan."
               />
 
               <View className="bg-white rounded-2xl border border-gray-100 p-4 mb-5">
                 <Text className="text-gray-500 text-xs mb-1">
                   Gejala
                 </Text>
+
                 <Text className="text-gray-900 font-semibold mb-3">
                   {symptom}
                 </Text>
@@ -634,6 +722,7 @@ export default function KonsultasiScreen() {
                 <Text className="text-gray-500 text-xs mb-1">
                   Durasi
                 </Text>
+
                 <Text className="text-gray-900 font-semibold mb-3">
                   {duration}
                 </Text>
@@ -641,6 +730,7 @@ export default function KonsultasiScreen() {
                 <Text className="text-gray-500 text-xs mb-1">
                   Paparan asap atau polusi
                 </Text>
+
                 <Text className="text-gray-900 font-semibold">
                   {exposure}
                 </Text>
@@ -648,7 +738,7 @@ export default function KonsultasiScreen() {
 
               <SectionTitle
                 title="Rekomendasi Dokter"
-                subtitle="Pilihan awal berdasarkan informasi gejala kamu."
+                subtitle="Pilihan awal berdasarkan informasi yang kamu berikan."
               />
 
               {recommendedDoctors.map((doctor) => (
@@ -660,10 +750,9 @@ export default function KonsultasiScreen() {
 
               <View className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mt-2 mb-4">
                 <Text className="text-yellow-800 text-xs leading-5">
-                  Rekomendasi ini bukan diagnosis dan perlu
-                  dikonfirmasi oleh tenaga medis. Jika gejala
-                  memburuk atau mengalami sesak berat, segera
-                  cari pertolongan medis.
+                  Rekomendasi ini bukan diagnosis medis dan
+                  perlu dikonfirmasi oleh tenaga medis.
+                  Jika gejala memburuk, segera cari pertolongan.
                 </Text>
               </View>
 
@@ -678,7 +767,10 @@ export default function KonsultasiScreen() {
             </>
           )}
 
+          {/* ===================== */}
           {/* PILIH METODE */}
+          {/* ===================== */}
+
           {stage === "method" && selectedDoctor && (
             <>
               <SectionTitle
@@ -690,14 +782,17 @@ export default function KonsultasiScreen() {
                 <Text className="text-gray-500 text-xs">
                   Dokter pilihan
                 </Text>
+
                 <Text className="text-gray-900 font-bold mt-1">
                   {selectedDoctor.name}
                 </Text>
+
                 <Text className="text-green-700 text-sm">
                   {selectedDoctor.specialist}
                 </Text>
               </View>
 
+              {/* ONSITE */}
               <Pressable
                 onPress={() => selectMethod("onsite")}
                 className="bg-white border border-gray-200 rounded-2xl p-5 mb-3"
@@ -706,12 +801,14 @@ export default function KonsultasiScreen() {
                   <View className="bg-green-100 w-12 h-12 rounded-xl items-center justify-center mr-3">
                     <Text className="text-2xl">🏥</Text>
                   </View>
+
                   <View className="flex-1">
                     <Text className="text-gray-900 font-bold text-base">
                       Konsultasi Onsite
                     </Text>
+
                     <Text className="text-gray-500 text-xs mt-1">
-                      Datang langsung ke fasilitas kesehatan
+                      Datang langsung ke fasilitas kesehatan.
                     </Text>
                   </View>
                 </View>
@@ -721,6 +818,7 @@ export default function KonsultasiScreen() {
                 </Text>
               </Pressable>
 
+              {/* ONLINE */}
               <Pressable
                 onPress={() => selectMethod("online")}
                 className="bg-white border border-gray-200 rounded-2xl p-5 mb-4"
@@ -729,12 +827,14 @@ export default function KonsultasiScreen() {
                   <View className="bg-blue-100 w-12 h-12 rounded-xl items-center justify-center mr-3">
                     <Text className="text-2xl">📹</Text>
                   </View>
+
                   <View className="flex-1">
                     <Text className="text-gray-900 font-bold text-base">
                       Konsultasi Online
                     </Text>
+
                     <Text className="text-gray-500 text-xs mt-1">
-                      Konsultasi dari rumah melalui video call
+                      Konsultasi dari rumah melalui video call.
                     </Text>
                   </View>
                 </View>
@@ -755,7 +855,10 @@ export default function KonsultasiScreen() {
             </>
           )}
 
+          {/* ===================== */}
           {/* FORM BOOKING */}
+          {/* ===================== */}
+
           {stage === "booking" && selectedDoctor && (
             <>
               <SectionTitle
@@ -767,22 +870,26 @@ export default function KonsultasiScreen() {
                 subtitle="Lengkapi data untuk membuat jadwal konsultasi."
               />
 
+              {/* DOCTOR INFO */}
               <View className="bg-white rounded-2xl border border-gray-100 p-4 mb-5">
                 <Text className="text-gray-500 text-xs">
                   Dokter pilihan
                 </Text>
+
                 <Text className="text-gray-900 font-bold mt-1">
                   {selectedDoctor.name}
                 </Text>
+
                 <Text className="text-green-700 text-sm">
                   {selectedDoctor.specialist}
                 </Text>
               </View>
 
-              {/* NAMA PASIEN */}
+              {/* PATIENT NAME */}
               <Text className="text-gray-800 font-semibold mb-2">
                 Nama Pasien
               </Text>
+
               <TextInput
                 value={patientName}
                 onChangeText={setPatientName}
@@ -791,10 +898,11 @@ export default function KonsultasiScreen() {
                 className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-4 text-gray-800"
               />
 
-              {/* TANGGAL */}
+              {/* BOOKING DATE */}
               <Text className="text-gray-800 font-semibold mb-2">
                 Tanggal Konsultasi
               </Text>
+
               <TextInput
                 value={bookingDate}
                 onChangeText={setBookingDate}
@@ -802,17 +910,18 @@ export default function KonsultasiScreen() {
                 placeholderTextColor="#9CA3AF"
                 className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-1 text-gray-800"
               />
+
               <Text className="text-gray-400 text-xs mb-4">
                 Gunakan format tahun-bulan-tanggal.
               </Text>
 
-              {/* JAM */}
+              {/* TIME SLOTS */}
               <Text className="text-gray-800 font-semibold mb-3">
                 Pilih Jam Konsultasi
               </Text>
 
               <View className="flex-row flex-wrap mb-4">
-                {availableSlots.map((slot) => (
+                {selectedDoctor.slots.map((slot) => (
                   <Pressable
                     key={slot}
                     onPress={() => setSelectedTime(slot)}
@@ -835,7 +944,7 @@ export default function KonsultasiScreen() {
                 ))}
               </View>
 
-              {/* KHUSUS ONSITE */}
+              {/* ONSITE DETAILS */}
               {consultationMethod === "onsite" && (
                 <View className="mb-5">
                   <Text className="text-gray-800 font-semibold mb-2">
@@ -846,9 +955,11 @@ export default function KonsultasiScreen() {
                     <Text className="text-gray-900 font-semibold">
                       {selectedDoctor.facility}
                     </Text>
+
                     <Text className="text-gray-500 text-sm mt-1">
                       {selectedDoctor.address}
                     </Text>
+
                     <Text className="text-green-700 text-xs mt-2">
                       Lokasi praktik contoh
                     </Text>
@@ -856,7 +967,7 @@ export default function KonsultasiScreen() {
                 </View>
               )}
 
-              {/* KHUSUS ONLINE */}
+              {/* ONLINE PLATFORM */}
               {consultationMethod === "online" && (
                 <View className="mb-5">
                   <Text className="text-gray-800 font-semibold mb-3">
@@ -874,6 +985,7 @@ export default function KonsultasiScreen() {
                     <Text className="font-semibold text-gray-900">
                       Zoom Meeting
                     </Text>
+
                     <Text className="text-gray-500 text-xs mt-1">
                       Konsultasi melalui ruang meeting Zoom.
                     </Text>
@@ -890,6 +1002,7 @@ export default function KonsultasiScreen() {
                     <Text className="font-semibold text-gray-900">
                       Video Call
                     </Text>
+
                     <Text className="text-gray-500 text-xs mt-1">
                       Konsultasi melalui fitur video call aplikasi.
                     </Text>
@@ -897,7 +1010,7 @@ export default function KonsultasiScreen() {
                 </View>
               )}
 
-              {/* ERROR */}
+              {/* ERROR MESSAGE */}
               {bookingError !== "" && (
                 <View className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
                   <Text className="text-red-700 text-sm">
@@ -906,6 +1019,7 @@ export default function KonsultasiScreen() {
                 </View>
               )}
 
+              {/* CONFIRM */}
               <PrimaryButton
                 title="Konfirmasi Booking"
                 onPress={confirmBooking}
@@ -922,7 +1036,10 @@ export default function KonsultasiScreen() {
             </>
           )}
 
-          {/* TIKET BOOKING */}
+          {/* ===================== */}
+          {/* BOOKING TICKET */}
+          {/* ===================== */}
+
           {stage === "booked" && selectedDoctor && (
             <>
               <View className="items-center mb-5 mt-2">
@@ -939,24 +1056,29 @@ export default function KonsultasiScreen() {
                 </Text>
               </View>
 
+              {/* TICKET */}
               <View className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                 <View className="bg-green-700 p-5 items-center">
                   <Text className="text-green-100 text-xs">
                     NOMOR TIKET KONSULTASI
                   </Text>
+
                   <Text className="text-white text-3xl font-bold mt-2">
                     {ticketNumber}
                   </Text>
+
                   <Text className="text-green-100 text-xs mt-2">
                     NapasAI Consultation
                   </Text>
                 </View>
 
                 <View className="p-5">
+
                   <View className="flex-row justify-between mb-4">
                     <Text className="text-gray-500 text-sm">
                       Nama Pasien
                     </Text>
+
                     <Text className="text-gray-900 font-semibold text-sm">
                       {patientName}
                     </Text>
@@ -966,6 +1088,7 @@ export default function KonsultasiScreen() {
                     <Text className="text-gray-500 text-sm">
                       Dokter
                     </Text>
+
                     <Text className="text-gray-900 font-semibold text-sm flex-1 text-right ml-4">
                       {selectedDoctor.name}
                     </Text>
@@ -975,6 +1098,7 @@ export default function KonsultasiScreen() {
                     <Text className="text-gray-500 text-sm">
                       Metode
                     </Text>
+
                     <Text className="text-gray-900 font-semibold text-sm">
                       {consultationMethod === "onsite"
                         ? "Onsite"
@@ -986,6 +1110,7 @@ export default function KonsultasiScreen() {
                     <Text className="text-gray-500 text-sm">
                       Tanggal
                     </Text>
+
                     <Text className="text-gray-900 font-semibold text-sm">
                       {bookingDate}
                     </Text>
@@ -995,6 +1120,7 @@ export default function KonsultasiScreen() {
                     <Text className="text-gray-500 text-sm">
                       Jam
                     </Text>
+
                     <Text className="text-gray-900 font-semibold text-sm">
                       {selectedTime}
                     </Text>
@@ -1005,9 +1131,11 @@ export default function KonsultasiScreen() {
                       <Text className="text-gray-500 text-sm mb-1">
                         Lokasi
                       </Text>
+
                       <Text className="text-gray-900 font-semibold text-sm">
                         {selectedDoctor.facility}
                       </Text>
+
                       <Text className="text-gray-500 text-xs mt-1">
                         {selectedDoctor.address}
                       </Text>
@@ -1017,6 +1145,7 @@ export default function KonsultasiScreen() {
                       <Text className="text-gray-500 text-sm mb-1">
                         Media Konsultasi
                       </Text>
+
                       <Text className="text-gray-900 font-semibold text-sm">
                         {onlinePlatform === "zoom"
                           ? "Zoom Meeting"
@@ -1034,27 +1163,29 @@ export default function KonsultasiScreen() {
                 </View>
               </View>
 
+              {/* ONLINE INFORMATION */}
               {consultationMethod === "online" && (
                 <View className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-4">
                   <Text className="text-blue-800 font-semibold text-sm mb-1">
                     Informasi Konsultasi Online
                   </Text>
+
                   <Text className="text-blue-700 text-xs leading-5">
                     Tautan Zoom atau video call belum dibuat.
-                    Dalam implementasi sebenarnya, tautan akan
+                    Pada implementasi sebenarnya, tautan akan
                     diberikan setelah jadwal dikonfirmasi oleh
-                    pihak klinik atau dokter.
+                    fasilitas kesehatan atau dokter.
                   </Text>
                 </View>
               )}
 
+              {/* DISCLAIMER */}
               <View className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mt-4">
                 <Text className="text-yellow-800 text-xs leading-5">
-                  Perhatian: Ini merupakan tiket booking simulasi
-                  untuk demonstrasi aplikasi. Belum menjadi
-                  janji temu resmi dan belum menjamin ketersediaan
-                  dokter. Konfirmasi jadwal perlu dilakukan oleh
-                  fasilitas kesehatan.
+                  Perhatian: Ini merupakan tiket booking
+                  simulasi untuk demonstrasi aplikasi. Belum
+                  menjadi janji temu resmi dan belum menjamin
+                  ketersediaan dokter.
                 </Text>
               </View>
 
@@ -1066,6 +1197,7 @@ export default function KonsultasiScreen() {
               </View>
             </>
           )}
+
         </ScrollView>
       </View>
     </KeyboardAvoidingView>
