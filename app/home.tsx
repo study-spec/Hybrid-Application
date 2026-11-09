@@ -159,6 +159,17 @@ export default function AirQualityHomeScreen() {
           </View>
         </View>
 
+        <Link href="/laporanudara" asChild>
+          <Pressable
+            accessibilityRole="button"
+            className="mt-3 items-center rounded-xl border border-[#dce7dc] bg-white py-3"
+          >
+            <Text className="text-xs font-bold text-[#55735d]">
+              Lihat detail pantauan udara →
+            </Text>
+          </Pressable>
+        </Link>
+
         <View className="mt-7 mb-3.5">
           <Text className="text-lg font-bold text-[#1e3024]">Kenali kondisi tubuhmu</Text>
           <Text className="mt-[5px] text-[13px] text-[#758078]">
@@ -227,6 +238,18 @@ export default function AirQualityHomeScreen() {
               Jika gejala terasa berat atau tidak membaik, hubungi tenaga
               kesehatan. Cek ini bukan diagnosis medis.
             </Text>
+            {selectedSymptoms.length > 0 ? (
+              <Link href="/konsultasi" asChild>
+                <Pressable
+                  accessibilityRole="button"
+                  className="mt-3 items-center rounded-xl bg-[#55735d] py-3"
+                >
+                  <Text className="text-xs font-bold text-white">
+                    Lanjutkan ke konsultasi →
+                  </Text>
+                </Pressable>
+              </Link>
+            ) : null}
           </View>
         ) : null}
 
@@ -263,6 +286,17 @@ export default function AirQualityHomeScreen() {
             </Text>
           </View>
         </View>
+
+        <Link href="/edukasi" asChild>
+          <Pressable
+            accessibilityRole="button"
+            className="mt-2 items-center rounded-xl bg-[#eaf2e8] py-3"
+          >
+            <Text className="text-xs font-bold text-[#55735d]">
+              Pelajari cara melindungi kesehatan →
+            </Text>
+          </Pressable>
+        </Link>
 
         <Link href="/register" asChild>
           <Pressable className="mt-[18px] flex-row items-center self-center p-2.5">

@@ -1,5 +1,6 @@
 
 import React, { useState } from "react";
+import { Link } from "expo-router";
 import {
   View,
   Text,
@@ -488,28 +489,31 @@ export default function EdukasiScreen() {
             </Pressable>
 
             {/* DOKTER INTERAKTIF */}
-            <Pressable
-              onPress={() => setShowDoctor(!showDoctor)}
-              className="bg-white rounded-2xl p-5 mb-4 border border-emerald-100"
-            >
-              <View className="flex-row items-center">
-                <View className="w-12 h-12 rounded-2xl bg-emerald-50 items-center justify-center mr-3">
-                  <Text className="text-2xl">👨‍⚕️</Text>
-                </View>
+            <View className="bg-white rounded-2xl p-5 mb-4 border border-emerald-100">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showDoctor }}
+                onPress={() => setShowDoctor(!showDoctor)}
+              >
+                <View className="flex-row items-center">
+                  <View className="w-12 h-12 rounded-2xl bg-emerald-50 items-center justify-center mr-3">
+                    <Text className="text-2xl">👨‍⚕️</Text>
+                  </View>
 
-                <View className="flex-1">
-                  <Text className="text-gray-900 font-bold text-base">
-                    Penjelasan Medis
-                  </Text>
-                  <Text className="text-gray-400 text-xs mt-1">
-                    Informasi dan arahan kesehatan
+                  <View className="flex-1">
+                    <Text className="text-gray-900 font-bold text-base">
+                      Penjelasan Medis
+                    </Text>
+                    <Text className="text-gray-400 text-xs mt-1">
+                      Informasi dan arahan kesehatan
+                    </Text>
+                  </View>
+
+                  <Text className="text-emerald-600 text-xl">
+                    {showDoctor ? "−" : "+"}
                   </Text>
                 </View>
-
-                <Text className="text-emerald-600 text-xl">
-                  {showDoctor ? "−" : "+"}
-                </Text>
-              </View>
+              </Pressable>
 
               {showDoctor && (
                 <View className="mt-4 pt-4 border-t border-gray-100">
@@ -524,9 +528,17 @@ export default function EdukasiScreen() {
                       dokter sungguhan.
                     </Text>
                   </View>
+
+                  <Link href="/konsultasi" asChild>
+                    <Pressable className="bg-emerald-600 rounded-xl py-3 mt-4 items-center">
+                      <Text className="text-white font-bold text-sm">
+                        Konsultasi dengan Dokter
+                      </Text>
+                    </Pressable>
+                  </Link>
                 </View>
               )}
-            </Pressable>
+            </View>
 
             <View className="bg-white rounded-3xl p-5 border border-gray-100">
               <Text className="text-gray-900 font-bold text-base mb-3">
@@ -958,14 +970,16 @@ export default function EdukasiScreen() {
               gejala dan menentukan penanganan sesuai kondisi.
             </Text>
 
-            <View className="bg-emerald-600 rounded-xl py-3 items-center">
-              <Text className="text-white font-bold text-sm">
-                Konsultasi dengan Dokter
-              </Text>
-              <Text className="text-emerald-100 text-[10px] mt-1">
-                Lanjutkan melalui menu Konsultasi
-              </Text>
-            </View>
+            <Link href="/konsultasi" asChild>
+              <Pressable className="bg-emerald-600 rounded-xl py-3 items-center">
+                <Text className="text-white font-bold text-sm">
+                  Konsultasi dengan Dokter
+                </Text>
+                <Text className="text-emerald-100 text-[10px] mt-1">
+                  Mulai konsultasi sekarang →
+                </Text>
+              </Pressable>
+            </Link>
           </View>
         </View>
 

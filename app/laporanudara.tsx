@@ -1,8 +1,10 @@
 import React, {useState} from 'react';
+import { Link } from 'expo-router';
 import {
     View,
     Text,
     ScrollView,
+    Pressable,
     TouchableOpacity,
 } from 'react-native';
 
@@ -259,7 +261,32 @@ const LaporanUdaraScreen = () => {
             ))}
           </View>
         </View>
-        
+
+        <View className="mb-5 rounded-2xl bg-white p-4">
+          <Text className="text-base font-bold text-[#26382E]">
+            Butuh informasi atau bantuan lebih lanjut?
+          </Text>
+          <Text className="mt-1 text-sm leading-5 text-gray-500">
+            Pelajari dampak polusi udara atau bicarakan gejala dengan NapasAI.
+          </Text>
+          <View className="mt-4 flex-row">
+            <Link href="/edukasi" asChild>
+              <Pressable className="mr-2 flex-1 items-center rounded-xl bg-[#EAF3EC] px-3 py-3">
+                <Text className="text-center text-xs font-bold text-[#287A48]">
+                  Buka Edukasi
+                </Text>
+              </Pressable>
+            </Link>
+            <Link href="/konsultasi" asChild>
+              <Pressable className="ml-2 flex-1 items-center rounded-xl bg-[#287A48] px-3 py-3">
+                <Text className="text-center text-xs font-bold text-white">
+                  Konsultasi
+                </Text>
+              </Pressable>
+            </Link>
+          </View>
+        </View>
+
         <Text className="text-center text-xs leading-5 text-gray-400">
           Informasi dan angka yang ditampilkan merupakan
           data simulasi, bukan pengukuran udara aktual.
