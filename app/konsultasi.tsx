@@ -10,10 +10,6 @@ import {
   Platform,
 } from "react-native";
 
-// ===============================
-// TYPES
-// ===============================
-
 type Stage =
   | "symptom"
   | "duration"
@@ -44,10 +40,6 @@ type Doctor = {
   initial: string;
   slots: string[];
 };
-
-// ===============================
-// DUMMY DOCTOR DATA
-// ===============================
 
 const doctors: Doctor[] = [
   {
@@ -84,10 +76,6 @@ const doctors: Doctor[] = [
     slots: ["09:00", "11:00", "13:00"],
   },
 ];
-
-// ===============================
-// HELPER FUNCTIONS
-// ===============================
 
 const dangerKeywords = [
   "sesak berat",
@@ -157,15 +145,10 @@ function isValidFutureDate(value: string) {
   return date >= today;
 }
 
-// ===============================
-// MAIN SCREEN
-// ===============================
 
 export default function KonsultasiScreen() {
-  // Tahap konsultasi
   const [stage, setStage] = useState<Stage>("symptom");
 
-  // Chatbot
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 1,
@@ -176,12 +159,10 @@ export default function KonsultasiScreen() {
 
   const [input, setInput] = useState("");
 
-  // Jawaban pengguna
   const [symptom, setSymptom] = useState("");
   const [duration, setDuration] = useState("");
   const [exposure, setExposure] = useState("");
 
-  // Booking dokter
   const [selectedDoctor, setSelectedDoctor] =
     useState<Doctor | null>(null);
 
@@ -203,10 +184,6 @@ export default function KonsultasiScreen() {
     symptom,
     exposure
   );
-
-  // ===============================
-  // CHAT FUNCTIONS
-  // ===============================
 
   const addMessage = (
     sender: "bot" | "user",
@@ -276,10 +253,6 @@ export default function KonsultasiScreen() {
     }
   };
 
-  // ===============================
-  // RESET
-  // ===============================
-
   const resetChat = () => {
     setStage("symptom");
 
@@ -322,10 +295,6 @@ export default function KonsultasiScreen() {
 
     setStage("method");
   };
-
-  // ===============================
-  // METHOD SELECTION
-  // ===============================
 
   const selectMethod = (method: ConsultationMethod) => {
     setConsultationMethod(method);
@@ -383,10 +352,6 @@ export default function KonsultasiScreen() {
     setBookingError("");
     setStage("booked");
   };
-
-  // ===============================
-  // REUSABLE COMPONENTS
-  // ===============================
 
   const PrimaryButton = ({
     title,
@@ -490,10 +455,6 @@ export default function KonsultasiScreen() {
       />
     </View>
   );
-
-  // ===============================
-  // MAIN UI
-  // ===============================
 
   return (
     <KeyboardAvoidingView
