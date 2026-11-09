@@ -3,16 +3,27 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
+  TextInput,
   Pressable,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 
-type Stage = "symptom" | "duration" | "exposure" | "done" | "urgent";
+type Stage =
+  | "symptom"
+  | "duration"
+  | "exposure"
+  | "done"
+  | "method"
+  | "booking"
+  | "booked"
+  | "urgent";
 
-type Message = {
+type ConsultationMethod = "onsite" | "online";
+type OnlinePlatform = "zoom" | "videocall";
+
+type ChatMessage = {
   id: number;
   sender: "bot" | "user";
   text: string;
@@ -23,8 +34,11 @@ type Doctor = {
   name: string;
   specialist: string;
   description: string;
+  facility: string;
+  address: string;
   schedule: string;
   initial: string;
+  slots: string[];
 };
 
 const doctors: Doctor[] = [
@@ -33,515 +47,1026 @@ const doctors: Doctor[] = [
     name: "Dr. Andi Pratama",
     specialist: "Dokter Umum",
     description: "Evaluasi awal keluhan pernapasan",
-    schedule: "Jadwal contoh: Senin–Jumat",
+    facility: "Klinik Sehat Bersama",
+    address: "Jl. Kesehatan No. 10",
+    schedule: "Senin - Jumat",
     initial: "AP",
+    slots: ["09:00", "10:00", "13:00", "15:00"],
   },
   {
     id: 2,
     name: "Dr. Siti Rahma, Sp.P",
     specialist: "Spesialis Paru",
     description: "Evaluasi gangguan sistem pernapasan",
-    schedule: "Jadwal contoh: Selasa–Sabtu",
+    facility: "Klinik Paru Sehat",
+    address: "Jl. Melati No. 25",
+    schedule: "Selasa - Sabtu",
     initial: "SR",
+    slots: ["08:00", "10:00", "11:00", "14:00"],
   },
   {
     id: 3,
     name: "Dr. Budi Santoso, Sp.A",
     specialist: "Spesialis Anak",
-    description: "Pelayanan kesehatan pernapasan anak",
-    schedule: "Jadwal contoh: Senin–Kamis",
+    description: "Pelayanan kesehatan anak",
+    facility: "Klinik Anak Ceria",
+    address: "Jl. Anggrek No. 15",
+    schedule: "Senin - Kamis",
     initial: "BS",
+    slots: ["09:00", "11:00", "13:00"],
   },
 ];
 
+const dangerKeywords = [
+  "sesak berat",
+  "sulit bernapas",
+  "susah bernapas",
+  "bibir biru",
+  "pingsan",
+  "tidak bisa bicara",
+  "tidak bisa bernafas",
+  "sulit bernafas",
+];
+
+function isDangerous(text: string) {
+  const normalized = text.toLowerCase();
+  return dangerKeywords.some((keyword) =>
+    normalized.includes(keyword)
+  );
+}
+
+function getRecommendedDoctors(
+  symptom: string,
+  exposure: string
+): Doctor[] {
+  const text = symptom.toLowerCase();
+
+  if (
+    text.includes("anak") ||
+    text.includes("balita") ||
+    text.includes("bayi")
+  ) {
+    return [doctors[2], doctors[0]];
+  }
+
+  if (
+    text.includes("asma") ||
+    text.includes("sesak") ||
+    text.includes("napas") ||
+    text.includes("bernapas") ||
+    exposure.toLowerCase().includes("sering")
+  ) {
+    return [doctors[1], doctors[0]];
+  }
+
+  return [doctors[0], doctors[1]];
+}
+
+function isValidFutureDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+
+  // Memastikan tanggal benar-benar valid
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return false;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return date >= today;
+}
+
 export default function KonsultasiScreen() {
-  const [input, setInput] = useState("");
   const [stage, setStage] = useState<Stage>("symptom");
+
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: 1,
+      sender: "bot",
+      text: "Halo! Saya NapasAI. Saya akan membantu memahami keluhan pernapasan kamu. Apa gejala yang sedang dirasakan?",
+    },
+  ]);
+
+  const [input, setInput] = useState("");
 
   const [symptom, setSymptom] = useState("");
   const [duration, setDuration] = useState("");
   const [exposure, setExposure] = useState("");
 
   const [selectedDoctor, setSelectedDoctor] =
-    useState<number | null>(null);
+    useState<Doctor | null>(null);
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      sender: "bot",
-      text: "Halo! 👋 Saya NapasAI, asisten kesehatan pernapasan kamu.",
-    },
-    {
-      id: 2,
-      sender: "bot",
-      text: "Saya akan membantu mengumpulkan informasi mengenai keluhan pernapasanmu, termasuk kemungkinan paparan asap karhutla.",
-    },
-    {
-      id: 3,
-      sender: "bot",
-      text: "Apa keluhan yang sedang kamu rasakan saat ini?",
-    },
-  ]);
+  const [consultationMethod, setConsultationMethod] =
+    useState<ConsultationMethod | null>(null);
 
-  const addBotMessage = (text: string) => {
-    setMessages((prev) => [
-      ...prev,
+  const [onlinePlatform, setOnlinePlatform] =
+    useState<OnlinePlatform | null>(null);
+
+  const [patientName, setPatientName] = useState("");
+  const [bookingDate, setBookingDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+  const [bookingError, setBookingError] = useState("");
+  const [ticketNumber, setTicketNumber] = useState("");
+
+  const [ticketCreatedAt] = useState(() => new Date());
+
+  const addMessage = (
+    sender: "bot" | "user",
+    text: string
+  ) => {
+    setMessages((previous) => [
+      ...previous,
       {
         id: Date.now() + Math.random(),
-        sender: "bot",
+        sender,
         text,
       },
     ]);
   };
 
-  // Mengidentifikasi tanda bahaya dari jawaban pengguna
-  const hasDangerSign = (text: string) => {
-    const lower = text.toLowerCase();
+  const submitAnswer = (answer: string) => {
+    const cleanAnswer = answer.trim();
 
-    const dangerWords = [
-      "sesak berat",
-      "sulit bernapas",
-      "susah bernapas",
-      "tidak bisa bernapas",
-      "bibir biru",
-      "sulit bicara karena sesak",
-      "pingsan",
-    ];
+    if (!cleanAnswer) return;
 
-    return dangerWords.some((word) => lower.includes(word));
-  };
-
-  const sendMessage = (value?: string) => {
-    const text = (value ?? input).trim();
-
-    if (!text || stage === "done" || stage === "urgent") {
-      return;
-    }
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        sender: "user",
-        text,
-      },
-    ]);
-
+    addMessage("user", cleanAnswer);
     setInput("");
 
-    // Penanganan kondisi darurat
-    if (hasDangerSign(text)) {
-      setStage("urgent");
-
-      addBotMessage(
-        "⚠️ Keluhan yang kamu sampaikan dapat menunjukkan kondisi serius. Segera cari pertolongan medis di IGD atau hubungi layanan darurat setempat. Jangan menunggu proses chatbot selesai."
+    if (isDangerous(cleanAnswer)) {
+      addMessage(
+        "bot",
+        "Keluhan yang kamu sampaikan dapat menandakan kondisi darurat. Segera cari pertolongan medis di IGD atau hubungi layanan darurat setempat. Jangan menunggu proses chatbot atau booking."
       );
-
+      setStage("urgent");
       return;
     }
 
-    // Tahap 1: Keluhan
     if (stage === "symptom") {
-      setSymptom(text);
+      setSymptom(cleanAnswer);
+
+      addMessage(
+        "bot",
+        "Sudah berapa lama gejala tersebut kamu alami?"
+      );
+
       setStage("duration");
-
-      addBotMessage(
-        "Baik, terima kasih sudah bercerita. Sudah berapa lama kamu mengalami keluhan tersebut?"
-      );
+      return;
     }
 
-    // Tahap 2: Durasi
-    else if (stage === "duration") {
-      setDuration(text);
+    if (stage === "duration") {
+      setDuration(cleanAnswer);
+
+      addMessage(
+        "bot",
+        "Apakah kamu sering terpapar asap kebakaran hutan, asap rokok, atau polusi udara?"
+      );
+
       setStage("exposure");
-
-      addBotMessage(
-        "Apakah kamu atau orang yang mengalami keluhan sempat terpapar asap kebakaran hutan atau polusi udara?"
-      );
+      return;
     }
 
-    // Tahap 3: Paparan asap
-    else if (stage === "exposure") {
-      setExposure(text);
+    if (stage === "exposure") {
+      setExposure(cleanAnswer);
+
+      addMessage(
+        "bot",
+        "Terima kasih! Jawaban kamu sudah dicatat. Berikut ringkasan keluhan dan rekomendasi dokter berdasarkan informasi awal yang kamu berikan."
+      );
+
       setStage("done");
-
-      addBotMessage(
-        "Terima kasih! Informasi konsultasi awal kamu sudah berhasil dikumpulkan. Sekarang kamu bisa melihat ringkasan keluhan dan pilihan dokter."
-      );
     }
   };
-
-  // Pilihan jawaban cepat berdasarkan tahap
-  const quickReplies =
-    stage === "symptom"
-      ? [
-          "Batuk",
-          "Sesak napas",
-          "Pilek / iritasi",
-          "Demam",
-          "Tenggorokan sakit",
-        ]
-      : stage === "duration"
-      ? ["Baru hari ini", "1–3 hari", "Lebih dari 3 hari"]
-      : stage === "exposure"
-      ? [
-          "Ya, terpapar asap",
-          "Tidak terpapar",
-          "Tidak yakin",
-        ]
-      : [];
-
-  // Rekomendasi berdasarkan informasi yang dikumpulkan.
-  // Ini hanya aturan demonstrasi, bukan keputusan klinis.
-  const getRecommendedDoctors = () => {
-    const lower = symptom.toLowerCase();
-
-    if (lower.includes("anak") || lower.includes("balita")) {
-      return [doctors[2], doctors[0]];
-    }
-
-    if (
-      lower.includes("sesak") ||
-      lower.includes("asma") ||
-      exposure.toLowerCase().includes("terpapar")
-    ) {
-      return [doctors[1], doctors[0]];
-    }
-
-    return [doctors[0], doctors[1]];
-  };
-
-  const recommendedDoctors = getRecommendedDoctors();
 
   const resetChat = () => {
     setStage("symptom");
+    setMessages([
+      {
+        id: Date.now(),
+        sender: "bot",
+        text: "Halo! Saya NapasAI. Saya akan membantu memahami keluhan pernapasan kamu. Apa gejala yang sedang dirasakan?",
+      },
+    ]);
+
     setInput("");
     setSymptom("");
     setDuration("");
     setExposure("");
     setSelectedDoctor(null);
-
-    setMessages([
-      {
-        id: Date.now(),
-        sender: "bot",
-        text: "Halo! 👋 Selamat datang kembali di NapasAI. Apa keluhan pernapasan yang sedang kamu rasakan?",
-      },
-    ]);
+    setConsultationMethod(null);
+    setOnlinePlatform(null);
+    setPatientName("");
+    setBookingDate("");
+    setSelectedTime("");
+    setBookingError("");
+    setTicketNumber("");
   };
+
+  const selectDoctor = (doctor: Doctor) => {
+    setSelectedDoctor(doctor);
+    setConsultationMethod(null);
+    setOnlinePlatform(null);
+    setSelectedTime("");
+    setBookingError("");
+    setStage("method");
+  };
+
+  const selectMethod = (method: ConsultationMethod) => {
+    setConsultationMethod(method);
+    setOnlinePlatform(null);
+    setSelectedTime("");
+    setBookingError("");
+    setStage("booking");
+  };
+
+  const confirmBooking = () => {
+    if (!selectedDoctor || !consultationMethod) {
+      setBookingError("Silakan pilih dokter dan metode konsultasi.");
+      return;
+    }
+
+    if (!patientName.trim()) {
+      setBookingError("Nama pasien harus diisi.");
+      return;
+    }
+
+    if (!isValidFutureDate(bookingDate)) {
+      setBookingError(
+        "Masukkan tanggal yang valid dan bukan tanggal yang sudah lewat. Format: YYYY-MM-DD."
+      );
+      return;
+    }
+
+    if (!selectedTime) {
+      setBookingError("Silakan pilih jam konsultasi.");
+      return;
+    }
+
+    if (
+      consultationMethod === "online" &&
+      !onlinePlatform
+    ) {
+      setBookingError("Silakan pilih media konsultasi online.");
+      return;
+    }
+
+    const newTicket =
+      "NA-" + Date.now().toString().slice(-6);
+
+    setTicketNumber(newTicket);
+    setBookingError("");
+    setStage("booked");
+  };
+
+  const recommendedDoctors = getRecommendedDoctors(
+    symptom,
+    exposure
+  );
+
+  const availableSlots = selectedDoctor?.slots ?? [];
+
+  const PrimaryButton = ({
+    title,
+    onPress,
+  }: {
+    title: string;
+    onPress: () => void;
+  }) => (
+    <Pressable
+      onPress={onPress}
+      className="bg-green-700 rounded-xl py-3.5 px-4 items-center"
+    >
+      <Text className="text-white font-semibold text-sm">
+        {title}
+      </Text>
+    </Pressable>
+  );
+
+  const OptionButton = ({
+    title,
+    onPress,
+  }: {
+    title: string;
+    onPress: () => void;
+  }) => (
+    <Pressable
+      onPress={onPress}
+      className="border border-green-200 bg-white rounded-xl px-4 py-3 mb-2"
+    >
+      <Text className="text-green-800 font-medium text-sm">
+        {title}
+      </Text>
+    </Pressable>
+  );
+
+  const SectionTitle = ({
+    title,
+    subtitle,
+  }: {
+    title: string;
+    subtitle?: string;
+  }) => (
+    <View className="mb-4">
+      <Text className="text-xl font-bold text-gray-900">
+        {title}
+      </Text>
+      {subtitle ? (
+        <Text className="text-gray-500 text-sm mt-1">
+          {subtitle}
+        </Text>
+      ) : null}
+    </View>
+  );
+
+  const DoctorCard = ({ doctor }: { doctor: Doctor }) => (
+    <View className="bg-white border border-gray-200 rounded-2xl p-4 mb-3">
+      <View className="flex-row items-center mb-3">
+        <View className="w-12 h-12 rounded-full bg-green-100 items-center justify-center mr-3">
+          <Text className="text-green-800 font-bold">
+            {doctor.initial}
+          </Text>
+        </View>
+
+        <View className="flex-1">
+          <Text className="font-bold text-gray-900">
+            {doctor.name}
+          </Text>
+          <Text className="text-green-700 text-sm">
+            {doctor.specialist}
+          </Text>
+        </View>
+      </View>
+
+      <Text className="text-gray-600 text-sm mb-2">
+        {doctor.description}
+      </Text>
+
+      <View className="bg-gray-50 rounded-xl p-3 mb-3">
+        <Text className="text-gray-800 text-sm font-semibold">
+          {doctor.facility}
+        </Text>
+        <Text className="text-gray-500 text-xs mt-1">
+          {doctor.address}
+        </Text>
+        <Text className="text-gray-500 text-xs mt-1">
+          Jadwal contoh: {doctor.schedule}
+        </Text>
+      </View>
+
+      <PrimaryButton
+        title="Pilih Dokter"
+        onPress={() => selectDoctor(doctor)}
+      />
+    </View>
+  );
 
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-[#F6F9F5]"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
     >
-      {/* HEADER */}
-      <View className="bg-[#267A4B] px-5 pt-12 pb-6 rounded-b-[28px]">
-        <View className="flex-row items-center">
-          <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center">
-            <Text className="text-2xl">🌿</Text>
-          </View>
+      <View className="flex-1">
+        {/* HEADER */}
+        <View className="bg-green-700 px-5 pt-12 pb-5 rounded-b-3xl">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-white text-2xl font-bold">
+                NapasAI
+              </Text>
+              <Text className="text-green-100 text-sm mt-1">
+                Asisten kesehatan pernapasan
+              </Text>
+            </View>
 
-          <View className="ml-3 flex-1">
-            <Text className="text-white text-xl font-bold">
-              NapasAI
-            </Text>
-            <Text className="text-green-100 text-xs">
-              Asisten Kesehatan Pernapasan
-            </Text>
-          </View>
-
-          <View className="bg-green-100 px-3 py-1 rounded-full">
-            <Text className="text-green-800 text-xs font-semibold">
-              ● Online
-            </Text>
-          </View>
-        </View>
-
-        <Text className="text-white/80 text-xs mt-4">
-          Teman konsultasi untuk menjaga kesehatan pernapasanmu.
-        </Text>
-      </View>
-
-      {/* AREA CHAT */}
-      <ScrollView
-        className="flex-1 px-4"
-        contentContainerStyle={{ paddingVertical: 20 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        {messages.map((message) => (
-          <View
-            key={message.id}
-            className={`flex-row mb-4 ${
-              message.sender === "user"
-                ? "justify-end"
-                : "justify-start"
-            }`}
-          >
-            {message.sender === "bot" && (
-              <View className="w-8 h-8 rounded-full bg-green-100 items-center justify-center mr-2">
-                <Text>🌿</Text>
-              </View>
-            )}
-
-            <View
-              className={`max-w-[82%] px-4 py-3 rounded-2xl ${
-                message.sender === "user"
-                  ? "bg-[#267A4B] rounded-br-sm"
-                  : "bg-white rounded-bl-sm border border-gray-100"
-              }`}
-            >
-              <Text
-                className={`text-sm leading-6 ${
-                  message.sender === "user"
-                    ? "text-white"
-                    : "text-gray-700"
-                }`}
-              >
-                {message.text}
+            <View className="bg-white/20 rounded-full px-3 py-2">
+              <Text className="text-white text-xs font-semibold">
+                Konsultasi
               </Text>
             </View>
           </View>
-        ))}
+        </View>
 
-        {/* PILIHAN JAWABAN */}
-        {quickReplies.length > 0 && (
-          <View className="ml-10 flex-row flex-wrap gap-2 mb-5">
-            {quickReplies.map((item) => (
-              <Pressable
-                key={item}
-                onPress={() => sendMessage(item)}
-                className="bg-white border border-[#267A4B] px-4 py-2 rounded-full"
-              >
-                <Text className="text-[#267A4B] text-xs font-semibold">
-                  {item}
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{
+            padding: 18,
+            paddingBottom: 35,
+          }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* CHATBOT */}
+          {(
+            stage === "symptom" ||
+            stage === "duration" ||
+            stage === "exposure"
+          ) && (
+            <>
+              <View className="mb-4">
+                <Text className="text-lg font-bold text-gray-900">
+                  Konsultasi dengan NapasAI
                 </Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
+                <Text className="text-gray-500 text-sm mt-1">
+                  Jawab beberapa pertanyaan untuk mendapatkan
+                  rekomendasi awal.
+                </Text>
+              </View>
 
-        {/* PERINGATAN DARURAT */}
-        {stage === "urgent" && (
-          <View className="bg-red-50 border border-red-200 p-4 rounded-xl mb-5">
-            <Text className="text-red-700 font-bold">
-              Prioritaskan pertolongan medis
-            </Text>
-            <Text className="text-red-600 text-xs mt-2 leading-5">
-              Jangan menunggu rekomendasi dokter dari aplikasi.
-              Segera cari bantuan medis.
-            </Text>
+              {messages.map((message) => (
+                <View
+                  key={message.id}
+                  className={`mb-3 max-w-[88%] ${
+                    message.sender === "user"
+                      ? "self-end"
+                      : "self-start"
+                  }`}
+                >
+                  <View
+                    className={`rounded-2xl px-4 py-3 ${
+                      message.sender === "user"
+                        ? "bg-green-700 rounded-br-sm"
+                        : "bg-white border border-gray-100 rounded-bl-sm"
+                    }`}
+                  >
+                    <Text
+                      className={`text-sm leading-6 ${
+                        message.sender === "user"
+                          ? "text-white"
+                          : "text-gray-800"
+                      }`}
+                    >
+                      {message.text}
+                    </Text>
+                  </View>
 
-            <Pressable
-              onPress={resetChat}
-              className="mt-3 bg-red-600 rounded-lg p-3 items-center"
-            >
-              <Text className="text-white font-semibold">
-                Mulai Konsultasi Baru
+                  <Text className="text-gray-400 text-xs mt-1 mx-1">
+                    {message.sender === "user"
+                      ? "Kamu"
+                      : "NapasAI"}
+                  </Text>
+                </View>
+              ))}
+
+              {/* QUICK REPLIES */}
+              {stage === "duration" && (
+                <View className="mt-2">
+                  <OptionButton
+                    title="Kurang dari 1 hari"
+                    onPress={() =>
+                      submitAnswer("Kurang dari 1 hari")
+                    }
+                  />
+                  <OptionButton
+                    title="1 - 3 hari"
+                    onPress={() => submitAnswer("1 - 3 hari")}
+                  />
+                  <OptionButton
+                    title="Lebih dari 3 hari"
+                    onPress={() =>
+                      submitAnswer("Lebih dari 3 hari")
+                    }
+                  />
+                  <OptionButton
+                    title="Lebih dari 1 minggu"
+                    onPress={() =>
+                      submitAnswer("Lebih dari 1 minggu")
+                    }
+                  />
+                </View>
+              )}
+
+              {stage === "exposure" && (
+                <View className="mt-2">
+                  <OptionButton
+                    title="Ya, sering terpapar"
+                    onPress={() =>
+                      submitAnswer("Ya, sering terpapar")
+                    }
+                  />
+                  <OptionButton
+                    title="Kadang-kadang"
+                    onPress={() =>
+                      submitAnswer("Kadang-kadang")
+                    }
+                  />
+                  <OptionButton
+                    title="Tidak pernah"
+                    onPress={() =>
+                      submitAnswer("Tidak pernah")
+                    }
+                  />
+                </View>
+              )}
+
+              {/* INPUT CHAT */}
+              <View className="flex-row items-center mt-4">
+                <TextInput
+                  value={input}
+                  onChangeText={setInput}
+                  placeholder="Ketik jawaban kamu..."
+                  placeholderTextColor="#9CA3AF"
+                  className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-gray-800"
+                  onSubmitEditing={() => submitAnswer(input)}
+                  returnKeyType="send"
+                />
+
+                <Pressable
+                  onPress={() => submitAnswer(input)}
+                  className="bg-green-700 rounded-xl p-3 ml-2"
+                >
+                  <Text className="text-white font-bold">
+                    Kirim
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text className="text-gray-400 text-xs mt-3 leading-5">
+                NapasAI hanya memberikan informasi awal,
+                bukan diagnosis medis.
               </Text>
-            </Pressable>
-          </View>
-        )}
+            </>
+          )}
 
-        {/* RINGKASAN DAN REKOMENDASI */}
-        {stage === "done" && (
-          <View className="mt-2 mb-5">
+          {/* URGENT */}
+          {stage === "urgent" && (
+            <View className="bg-red-50 border border-red-200 rounded-2xl p-5">
+              <Text className="text-red-700 text-xl font-bold mb-2">
+                Segera cari pertolongan medis
+              </Text>
 
-            {/* RINGKASAN */}
-            <View className="bg-white rounded-2xl p-4 border border-gray-100">
-              <View className="flex-row items-center mb-3">
-                <Text className="text-lg mr-2">📋</Text>
-                <Text className="text-gray-800 text-base font-bold">
-                  Ringkasan Keluhan
-                </Text>
-              </View>
+              <Text className="text-gray-700 text-sm leading-6 mb-4">
+                Gejala yang kamu sampaikan dapat menjadi tanda
+                kondisi darurat. Segera ke IGD atau hubungi
+                layanan darurat setempat. Jangan menunggu
+                konsultasi online atau booking.
+              </Text>
 
-              <View className="bg-green-50 rounded-xl p-3 mb-3">
-                <Text className="text-green-800 text-xs font-semibold">
-                  Hasil konsultasi awal NapasAI
-                </Text>
-                <Text className="text-green-700 text-xs mt-1">
-                  Informasi berdasarkan jawaban yang kamu berikan.
-                </Text>
-              </View>
+              <PrimaryButton
+                title="Mulai Konsultasi Baru"
+                onPress={resetChat}
+              />
+            </View>
+          )}
 
-              <View className="flex-row justify-between py-2 border-b border-gray-100">
-                <Text className="text-gray-500 text-sm">
-                  Keluhan
+          {/* RINGKASAN DAN REKOMENDASI */}
+          {stage === "done" && (
+            <>
+              <SectionTitle
+                title="Ringkasan Keluhan"
+                subtitle="Berikut informasi yang kamu sampaikan."
+              />
+
+              <View className="bg-white rounded-2xl border border-gray-100 p-4 mb-5">
+                <Text className="text-gray-500 text-xs mb-1">
+                  Gejala
                 </Text>
-                <Text className="text-gray-800 text-sm font-semibold">
+                <Text className="text-gray-900 font-semibold mb-3">
                   {symptom}
                 </Text>
-              </View>
 
-              <View className="flex-row justify-between py-2 border-b border-gray-100">
-                <Text className="text-gray-500 text-sm">
+                <Text className="text-gray-500 text-xs mb-1">
                   Durasi
                 </Text>
-                <Text className="text-gray-800 text-sm font-semibold">
+                <Text className="text-gray-900 font-semibold mb-3">
                   {duration}
                 </Text>
-              </View>
 
-              <View className="flex-row justify-between py-2">
-                <Text className="text-gray-500 text-sm">
-                  Paparan asap
+                <Text className="text-gray-500 text-xs mb-1">
+                  Paparan asap atau polusi
                 </Text>
-                <Text className="text-gray-800 text-sm font-semibold">
+                <Text className="text-gray-900 font-semibold">
                   {exposure}
                 </Text>
               </View>
 
-              <Text className="text-gray-400 text-[10px] mt-3 leading-4">
-                Ringkasan ini bukan diagnosis medis dan perlu
-                dikonfirmasi oleh tenaga kesehatan.
-              </Text>
-            </View>
+              <SectionTitle
+                title="Rekomendasi Dokter"
+                subtitle="Pilihan awal berdasarkan informasi gejala kamu."
+              />
 
-            {/* REKOMENDASI DOKTER */}
-            <View className="mt-5">
-              <Text className="text-gray-800 text-lg font-bold">
-                Rekomendasi Dokter
-              </Text>
-
-              <Text className="text-gray-500 text-xs mt-1 mb-3">
-                Pilihan awal berdasarkan informasi keluhanmu.
-              </Text>
-
-              {recommendedDoctors.map((doctor, index) => (
-                <View
+              {recommendedDoctors.map((doctor) => (
+                <DoctorCard
                   key={doctor.id}
-                  className="bg-white rounded-2xl p-4 mb-3 border border-gray-100"
-                >
-                  <View className="flex-row items-center">
-                    <View className="w-12 h-12 rounded-full bg-green-100 items-center justify-center">
-                      <Text className="text-[#267A4B] font-bold">
-                        {doctor.initial}
-                      </Text>
-                    </View>
+                  doctor={doctor}
+                />
+              ))}
 
-                    <View className="flex-1 ml-3">
-                      <Text className="text-gray-800 font-bold text-sm">
-                        {doctor.name}
-                      </Text>
+              <View className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mt-2 mb-4">
+                <Text className="text-yellow-800 text-xs leading-5">
+                  Rekomendasi ini bukan diagnosis dan perlu
+                  dikonfirmasi oleh tenaga medis. Jika gejala
+                  memburuk atau mengalami sesak berat, segera
+                  cari pertolongan medis.
+                </Text>
+              </View>
 
-                      <Text className="text-[#267A4B] text-xs mt-1">
-                        {doctor.specialist}
-                      </Text>
-                    </View>
+              <Pressable
+                onPress={resetChat}
+                className="py-3 items-center"
+              >
+                <Text className="text-green-700 font-semibold">
+                  Mulai konsultasi baru
+                </Text>
+              </Pressable>
+            </>
+          )}
 
-                    {index === 0 && (
-                      <View className="bg-green-100 px-2 py-1 rounded-full">
-                        <Text className="text-green-800 text-[10px] font-semibold">
-                          Pilihan awal
-                        </Text>
-                      </View>
-                    )}
+          {/* PILIH METODE */}
+          {stage === "method" && selectedDoctor && (
+            <>
+              <SectionTitle
+                title="Pilih Metode Konsultasi"
+                subtitle="Tentukan cara konsultasi dengan dokter."
+              />
+
+              <View className="bg-white border border-gray-100 rounded-2xl p-4 mb-5">
+                <Text className="text-gray-500 text-xs">
+                  Dokter pilihan
+                </Text>
+                <Text className="text-gray-900 font-bold mt-1">
+                  {selectedDoctor.name}
+                </Text>
+                <Text className="text-green-700 text-sm">
+                  {selectedDoctor.specialist}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => selectMethod("onsite")}
+                className="bg-white border border-gray-200 rounded-2xl p-5 mb-3"
+              >
+                <View className="flex-row items-center mb-3">
+                  <View className="bg-green-100 w-12 h-12 rounded-xl items-center justify-center mr-3">
+                    <Text className="text-2xl">🏥</Text>
                   </View>
-
-                  <Text className="text-gray-500 text-xs mt-3">
-                    {doctor.description}
-                  </Text>
-
-                  <Text className="text-gray-500 text-xs mt-2">
-                    🗓 {doctor.schedule}
-                  </Text>
-
-                  <View className="bg-yellow-50 rounded-lg p-2 mt-3">
-                    <Text className="text-yellow-800 text-[10px]">
-                      Jadwal dan identitas dokter merupakan data
-                      simulasi, bukan ketersediaan aktual.
+                  <View className="flex-1">
+                    <Text className="text-gray-900 font-bold text-base">
+                      Konsultasi Onsite
+                    </Text>
+                    <Text className="text-gray-500 text-xs mt-1">
+                      Datang langsung ke fasilitas kesehatan
                     </Text>
                   </View>
+                </View>
 
+                <Text className="text-green-700 font-semibold text-sm">
+                  Pilih Onsite →
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => selectMethod("online")}
+                className="bg-white border border-gray-200 rounded-2xl p-5 mb-4"
+              >
+                <View className="flex-row items-center mb-3">
+                  <View className="bg-blue-100 w-12 h-12 rounded-xl items-center justify-center mr-3">
+                    <Text className="text-2xl">📹</Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-gray-900 font-bold text-base">
+                      Konsultasi Online
+                    </Text>
+                    <Text className="text-gray-500 text-xs mt-1">
+                      Konsultasi dari rumah melalui video call
+                    </Text>
+                  </View>
+                </View>
+
+                <Text className="text-green-700 font-semibold text-sm">
+                  Pilih Online →
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => setStage("done")}
+                className="py-3 items-center"
+              >
+                <Text className="text-gray-500 font-medium">
+                  Kembali ke rekomendasi dokter
+                </Text>
+              </Pressable>
+            </>
+          )}
+
+          {/* FORM BOOKING */}
+          {stage === "booking" && selectedDoctor && (
+            <>
+              <SectionTitle
+                title={
+                  consultationMethod === "onsite"
+                    ? "Booking Onsite"
+                    : "Booking Online"
+                }
+                subtitle="Lengkapi data untuk membuat jadwal konsultasi."
+              />
+
+              <View className="bg-white rounded-2xl border border-gray-100 p-4 mb-5">
+                <Text className="text-gray-500 text-xs">
+                  Dokter pilihan
+                </Text>
+                <Text className="text-gray-900 font-bold mt-1">
+                  {selectedDoctor.name}
+                </Text>
+                <Text className="text-green-700 text-sm">
+                  {selectedDoctor.specialist}
+                </Text>
+              </View>
+
+              {/* NAMA PASIEN */}
+              <Text className="text-gray-800 font-semibold mb-2">
+                Nama Pasien
+              </Text>
+              <TextInput
+                value={patientName}
+                onChangeText={setPatientName}
+                placeholder="Masukkan nama pasien"
+                placeholderTextColor="#9CA3AF"
+                className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-4 text-gray-800"
+              />
+
+              {/* TANGGAL */}
+              <Text className="text-gray-800 font-semibold mb-2">
+                Tanggal Konsultasi
+              </Text>
+              <TextInput
+                value={bookingDate}
+                onChangeText={setBookingDate}
+                placeholder="YYYY-MM-DD, contoh: 2026-11-20"
+                placeholderTextColor="#9CA3AF"
+                className="bg-white border border-gray-200 rounded-xl px-4 py-3 mb-1 text-gray-800"
+              />
+              <Text className="text-gray-400 text-xs mb-4">
+                Gunakan format tahun-bulan-tanggal.
+              </Text>
+
+              {/* JAM */}
+              <Text className="text-gray-800 font-semibold mb-3">
+                Pilih Jam Konsultasi
+              </Text>
+
+              <View className="flex-row flex-wrap mb-4">
+                {availableSlots.map((slot) => (
                   <Pressable
-                    onPress={() => setSelectedDoctor(doctor.id)}
-                    className={`mt-3 rounded-xl py-3 items-center ${
-                      selectedDoctor === doctor.id
-                        ? "bg-green-100 border border-[#267A4B]"
-                        : "bg-[#267A4B]"
+                    key={slot}
+                    onPress={() => setSelectedTime(slot)}
+                    className={`rounded-xl border px-4 py-3 mr-2 mb-2 ${
+                      selectedTime === slot
+                        ? "bg-green-700 border-green-700"
+                        : "bg-white border-gray-200"
                     }`}
                   >
                     <Text
                       className={`font-semibold text-sm ${
-                        selectedDoctor === doctor.id
-                          ? "text-[#267A4B]"
-                          : "text-white"
+                        selectedTime === slot
+                          ? "text-white"
+                          : "text-gray-700"
                       }`}
                     >
-                      {selectedDoctor === doctor.id
-                        ? "✓ Dokter Dipilih"
-                        : "Pilih Dokter"}
+                      {slot}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* KHUSUS ONSITE */}
+              {consultationMethod === "onsite" && (
+                <View className="mb-5">
+                  <Text className="text-gray-800 font-semibold mb-2">
+                    Lokasi Konsultasi
+                  </Text>
+
+                  <View className="bg-white border border-gray-200 rounded-xl p-4">
+                    <Text className="text-gray-900 font-semibold">
+                      {selectedDoctor.facility}
+                    </Text>
+                    <Text className="text-gray-500 text-sm mt-1">
+                      {selectedDoctor.address}
+                    </Text>
+                    <Text className="text-green-700 text-xs mt-2">
+                      Lokasi praktik contoh
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* KHUSUS ONLINE */}
+              {consultationMethod === "online" && (
+                <View className="mb-5">
+                  <Text className="text-gray-800 font-semibold mb-3">
+                    Pilih Media Konsultasi
+                  </Text>
+
+                  <Pressable
+                    onPress={() => setOnlinePlatform("zoom")}
+                    className={`rounded-xl border p-4 mb-2 ${
+                      onlinePlatform === "zoom"
+                        ? "border-green-600 bg-green-50"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text className="font-semibold text-gray-900">
+                      Zoom Meeting
+                    </Text>
+                    <Text className="text-gray-500 text-xs mt-1">
+                      Konsultasi melalui ruang meeting Zoom.
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setOnlinePlatform("videocall")}
+                    className={`rounded-xl border p-4 ${
+                      onlinePlatform === "videocall"
+                        ? "border-green-600 bg-green-50"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <Text className="font-semibold text-gray-900">
+                      Video Call
+                    </Text>
+                    <Text className="text-gray-500 text-xs mt-1">
+                      Konsultasi melalui fitur video call aplikasi.
                     </Text>
                   </Pressable>
                 </View>
-              ))}
-            </View>
+              )}
 
-            {selectedDoctor !== null && (
-              <View className="bg-green-50 border border-green-200 rounded-xl p-4">
-                <Text className="text-green-800 font-bold">
-                  Dokter berhasil dipilih!
+              {/* ERROR */}
+              {bookingError !== "" && (
+                <View className="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+                  <Text className="text-red-700 text-sm">
+                    {bookingError}
+                  </Text>
+                </View>
+              )}
+
+              <PrimaryButton
+                title="Konfirmasi Booking"
+                onPress={confirmBooking}
+              />
+
+              <Pressable
+                onPress={() => setStage("method")}
+                className="py-4 items-center"
+              >
+                <Text className="text-gray-500 font-medium">
+                  Kembali pilih metode konsultasi
                 </Text>
-                <Text className="text-green-700 text-xs mt-1">
-                  Tahap selanjutnya adalah pemilihan jadwal booking.
-                  Fitur booking akan kita hubungkan berikutnya.
+              </Pressable>
+            </>
+          )}
+
+          {/* TIKET BOOKING */}
+          {stage === "booked" && selectedDoctor && (
+            <>
+              <View className="items-center mb-5 mt-2">
+                <View className="w-16 h-16 rounded-full bg-green-100 items-center justify-center mb-3">
+                  <Text className="text-3xl">✓</Text>
+                </View>
+
+                <Text className="text-xl font-bold text-gray-900">
+                  Booking Berhasil Dibuat!
+                </Text>
+
+                <Text className="text-gray-500 text-sm mt-1 text-center">
+                  Berikut ringkasan booking konsultasi kamu.
                 </Text>
               </View>
-            )}
 
-            <Pressable
-              onPress={resetChat}
-              className="mt-4 border border-gray-300 rounded-xl py-3 items-center"
-            >
-              <Text className="text-gray-600 font-semibold">
-                Mulai Konsultasi Baru
-              </Text>
-            </Pressable>
-          </View>
-        )}
+              <View className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+                <View className="bg-green-700 p-5 items-center">
+                  <Text className="text-green-100 text-xs">
+                    NOMOR TIKET KONSULTASI
+                  </Text>
+                  <Text className="text-white text-3xl font-bold mt-2">
+                    {ticketNumber}
+                  </Text>
+                  <Text className="text-green-100 text-xs mt-2">
+                    NapasAI Consultation
+                  </Text>
+                </View>
 
-        <Text className="text-gray-400 text-[10px] text-center mb-3">
-          NapasAI bukan pengganti diagnosis dan pemeriksaan dokter.
-        </Text>
-      </ScrollView>
+                <View className="p-5">
+                  <View className="flex-row justify-between mb-4">
+                    <Text className="text-gray-500 text-sm">
+                      Nama Pasien
+                    </Text>
+                    <Text className="text-gray-900 font-semibold text-sm">
+                      {patientName}
+                    </Text>
+                  </View>
 
-      {/* INPUT CHAT */}
-      <View className="bg-white px-4 py-3 border-t border-gray-100">
-        <View className="flex-row items-center">
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder={
-              stage === "done" || stage === "urgent"
-                ? "Percakapan selesai"
-                : "Ceritakan keluhanmu..."
-            }
-            placeholderTextColor="#9CA3AF"
-            editable={stage !== "done" && stage !== "urgent"}
-            multiline
-            className="flex-1 bg-gray-100 rounded-2xl px-4 py-3 text-sm max-h-24"
-          />
+                  <View className="flex-row justify-between mb-4">
+                    <Text className="text-gray-500 text-sm">
+                      Dokter
+                    </Text>
+                    <Text className="text-gray-900 font-semibold text-sm flex-1 text-right ml-4">
+                      {selectedDoctor.name}
+                    </Text>
+                  </View>
 
-          <Pressable
-            onPress={() => sendMessage()}
-            disabled={
-              !input.trim() ||
-              stage === "done" ||
-              stage === "urgent"
-            }
-            className={`ml-2 w-12 h-12 rounded-full items-center justify-center ${
-              input.trim() &&
-              stage !== "done" &&
-              stage !== "urgent"
-                ? "bg-[#267A4B]"
-                : "bg-gray-300"
-            }`}
-          >
-            <Text className="text-white text-xl">➤</Text>
-          </Pressable>
-        </View>
+                  <View className="flex-row justify-between mb-4">
+                    <Text className="text-gray-500 text-sm">
+                      Metode
+                    </Text>
+                    <Text className="text-gray-900 font-semibold text-sm">
+                      {consultationMethod === "onsite"
+                        ? "Onsite"
+                        : "Online"}
+                    </Text>
+                  </View>
+
+                  <View className="flex-row justify-between mb-4">
+                    <Text className="text-gray-500 text-sm">
+                      Tanggal
+                    </Text>
+                    <Text className="text-gray-900 font-semibold text-sm">
+                      {bookingDate}
+                    </Text>
+                  </View>
+
+                  <View className="flex-row justify-between mb-4">
+                    <Text className="text-gray-500 text-sm">
+                      Jam
+                    </Text>
+                    <Text className="text-gray-900 font-semibold text-sm">
+                      {selectedTime}
+                    </Text>
+                  </View>
+
+                  {consultationMethod === "onsite" ? (
+                    <View className="mb-4">
+                      <Text className="text-gray-500 text-sm mb-1">
+                        Lokasi
+                      </Text>
+                      <Text className="text-gray-900 font-semibold text-sm">
+                        {selectedDoctor.facility}
+                      </Text>
+                      <Text className="text-gray-500 text-xs mt-1">
+                        {selectedDoctor.address}
+                      </Text>
+                    </View>
+                  ) : (
+                    <View className="mb-4">
+                      <Text className="text-gray-500 text-sm mb-1">
+                        Media Konsultasi
+                      </Text>
+                      <Text className="text-gray-900 font-semibold text-sm">
+                        {onlinePlatform === "zoom"
+                          ? "Zoom Meeting"
+                          : "Video Call"}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View className="border-t border-dashed border-gray-300 pt-4 mt-1">
+                    <Text className="text-gray-500 text-xs text-center">
+                      Simpan nomor tiket ini sebagai referensi
+                      booking simulasi.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {consultationMethod === "online" && (
+                <View className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-4">
+                  <Text className="text-blue-800 font-semibold text-sm mb-1">
+                    Informasi Konsultasi Online
+                  </Text>
+                  <Text className="text-blue-700 text-xs leading-5">
+                    Tautan Zoom atau video call belum dibuat.
+                    Dalam implementasi sebenarnya, tautan akan
+                    diberikan setelah jadwal dikonfirmasi oleh
+                    pihak klinik atau dokter.
+                  </Text>
+                </View>
+              )}
+
+              <View className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mt-4">
+                <Text className="text-yellow-800 text-xs leading-5">
+                  Perhatian: Ini merupakan tiket booking simulasi
+                  untuk demonstrasi aplikasi. Belum menjadi
+                  janji temu resmi dan belum menjamin ketersediaan
+                  dokter. Konfirmasi jadwal perlu dilakukan oleh
+                  fasilitas kesehatan.
+                </Text>
+              </View>
+
+              <View className="mt-5">
+                <PrimaryButton
+                  title="Selesai"
+                  onPress={resetChat}
+                />
+              </View>
+            </>
+          )}
+        </ScrollView>
       </View>
     </KeyboardAvoidingView>
   );
